@@ -171,9 +171,7 @@ action:
 
   - service: llmvision.image_analyzer
     data:
-      {% if llm_provider and llm_provider != "" -%}
-      provider: "{{ llm_provider }}"
-      {%- endif %}
+      provider: "{{ llm_provider if llm_provider and llm_provider != '' else omit }}"
       message: >
         You are analyzing a TV screenshot. Current show context: "{{ current_context }}"
         
