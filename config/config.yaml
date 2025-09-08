@@ -1,0 +1,40 @@
+# Football Auto-Mute System Configuration
+
+# Claude AI API Configuration
+claude_api_key: "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"  # Get from https://console.anthropic.com/
+
+# Detection Settings
+detection:
+  interval_seconds: 30  # How often to check (recommended: 30-60)
+  confidence_threshold: 0.8  # Not currently used but reserved for future
+  enable_logging: true
+  
+# TV Control Settings
+tv_control:
+  enabled: true
+  cec_device_id: 0  # Usually 0 for the first TV
+  mute_method: "volume_down"  # "volume_down" or "mute_command"
+  volume_steps: 5  # Number of volume down steps to effectively mute
+  
+# Home Assistant Integration (Optional)
+home_assistant:
+  enabled: false  # Set to true to enable
+  url: "http://192.168.1.12:8123"
+  token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI0MjQzOGU5NTM1NTU0YWVjOWZhNzZkMjhlNDY4NDIwOSIsImlhdCI6MTc1NzI3NjQ1NywiZXhwIjoyMDcyNjM2NDU3fQ.0Wzoa-vniZmRyHKa3cw3wCZz7bdqQygYDF_N31aG4_k"
+  entity_id: "sensor.football_auto_mute"
+  
+# Browser Settings
+browser:
+  window_title: "YouTube TV"  # Window title to capture
+  youtube_tv_url: "https://tv.youtube.com/watch"
+  
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  max_log_files: 10
+  max_log_size_mb: 10
+  
+# Detection Context
+context:
+  default_channel: "Unknown"
+  timezone: "America/New_York"  # Adjust for your timezone
