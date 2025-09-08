@@ -31,12 +31,6 @@ blueprint:
       default: "/tmp/tv_screenshot.jpg"
       selector:
         text:
-    llmvision_provider:
-      name: LLM Vision Provider (Optional)
-      description: LLM Vision provider ID - leave blank to use default provider
-      default: ""
-      selector:
-        text:
     motion_sensor:
       name: Motion Sensor (Optional)
       description: Motion sensor to trigger detection (optional - leave blank for timer-based)
@@ -110,7 +104,6 @@ variables:
   image_source: !input image_source_type
   camera: !input camera_entity
   image_path: !input image_file_path
-  llm_provider: !input llmvision_provider
   motion_trigger: !input motion_sensor
   interval: !input detection_interval
   game_status: !input game_status_helper
@@ -171,7 +164,6 @@ action:
 
   - service: llmvision.image_analyzer
     data:
-      provider: "{{ llm_provider if llm_provider and llm_provider != '' else omit }}"
       message: >
         You are analyzing a TV screenshot. Current show context: "{{ current_context }}"
         
