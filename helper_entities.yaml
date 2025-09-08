@@ -39,19 +39,12 @@ input_text:
     max: 255
     initial: "unknown"
     icon: mdi:history
-
-input_text:
   tv_show_context:
     name: "TV Show Context"
     max: 255
     initial: "Unknown Show"
     icon: mdi:television-guide
 
-timer:
-  tv_detection_interval:
-    name: "TV Detection Interval"
-    duration: "00:00:30"  # 30 seconds default
-    icon: mdi:timer
 
 # Optional: Template sensors for easier automation triggers
 template:

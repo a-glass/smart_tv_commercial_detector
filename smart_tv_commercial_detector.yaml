@@ -39,12 +39,15 @@ blueprint:
         entity:
           domain: binary_sensor
           device_class: motion
-    detection_timer:
-      name: Detection Timer Helper
-      description: Timer helper that controls detection interval
+    detection_interval:
+      name: Detection Interval
+      description: How often to check for commercials (in seconds)
+      default: 30
       selector:
-        entity:
-          domain: timer
+        number:
+          min: 10
+          max: 300
+          unit_of_measurement: "seconds"
     content_status_helper:
       name: Content Status Helper
       description: Input select helper to store current status (content/commercial/unknown)
@@ -102,7 +105,7 @@ variables:
   camera: !input camera_entity
   image_path: !input image_file_path
   motion_trigger: !input motion_sensor
-  detection_timer_entity: !input detection_timer
+  interval: !input detection_interval
   content_status: !input content_status_helper
   confidence: !input confidence_helper
   last_detection: !input last_detection_helper
@@ -113,15 +116,17 @@ variables:
   use_filename_context: !input context_from_filename
 
 trigger:
-  - platform: event
-    event_type: timer.finished
-    event_data:
-      entity_id: "{{ detection_timer_entity }}"
-    id: "timer_trigger"
+  - platform: state
+    entity_id: !input enable_switch
+    to: "on"
+    id: "enable_trigger"
   - platform: state
     entity_id: "{{ motion_trigger if motion_trigger else 'none' }}"
     to: "on"
     id: "motion_trigger"
+  - platform: event
+    event_type: automation_reloaded
+    id: "reload_trigger"
 
 condition:
   - condition: template
@@ -261,10 +266,14 @@ action:
         ({{ ai_response.confidence }}% confidence, {{ consecutive_count }}/{{ consecutive_required }} consecutive)
       entity_id: "{{ history_helper }}"
 
-  # Restart the timer for next detection cycle
-  - service: timer.start
+  # Wait for the configured interval, then trigger this automation again
+  - delay:
+      seconds: "{{ interval }}"
+  - condition: template
+    value_template: "{{ is_state(enable_switch_entity, 'on') }}"
+  - service: automation.trigger
     target:
-      entity_id: "{{ detection_timer_entity }}"
+      entity_id: "{{ this.entity_id }}"
 
 mode: single
 max_exceeded: silent
