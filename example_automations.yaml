@@ -1,0 +1,232 @@
+# Example Home Assistant Automations using Smart TV Commercial Detection
+
+# 1. TV Volume Control - Mute during commercials
+automation:
+  - alias: "Smart TV: Mute During Commercials"
+    description: "Automatically mute TV when commercials are detected"
+    trigger:
+      - platform: state
+        entity_id: input_select.tv_content_status
+        to: "commercial"
+    condition:
+      - condition: state
+        entity_id: input_boolean.tv_auto_detection
+        state: "on"
+      - condition: numeric_state
+        entity_id: input_number.tv_detection_confidence
+        above: 75  # Only act on high-confidence detections
+    action:
+      - service: media_player.volume_mute
+        target:
+          entity_id: media_player.living_room_tv  # Replace with your TV entity
+        data:
+          is_volume_muted: true
+      - service: notify.mobile_app_your_phone  # Replace with your notification service
+        data:
+          title: "📺 Commercial Break"
+          message: >
+            TV muted during {{ states('input_text.tv_show_context') }} commercial
+            ({{ states('input_number.tv_detection_confidence') }}% confidence)
+            After {{ states('sensor.tv_consecutive_same_detections') }} consecutive detections
+
+  # 2. TV Volume Control - Unmute when content resumes
+  - alias: "Smart TV: Unmute When Content Resumes"
+    description: "Automatically unmute TV when program content returns"
+    trigger:
+      - platform: state
+        entity_id: input_select.tv_content_status
+        to: "content"
+    condition:
+      - condition: state
+        entity_id: input_boolean.tv_auto_detection
+        state: "on"
+      - condition: numeric_state
+        entity_id: input_number.tv_detection_confidence
+        above: 75
+      - condition: state
+        entity_id: media_player.living_room_tv
+        attribute: is_volume_muted
+        state: true
+    action:
+      - service: media_player.volume_mute
+        target:
+          entity_id: media_player.living_room_tv
+        data:
+          is_volume_muted: false
+      - service: notify.mobile_app_your_phone
+        data:
+          title: "📺 Show Resumed"
+          message: >
+            TV unmuted - {{ states('input_text.tv_show_context') }} resumed
+            ({{ states('input_number.tv_detection_confidence') }}% confidence)
+            After {{ states('sensor.tv_consecutive_same_detections') }} consecutive detections
+
+  # 3. Smart Light Control - Dim lights during content, normal during commercials
+  - alias: "Smart TV: Adjust Lighting Based on Content"
+    description: "Dim lights during show content, brighten during commercials"
+    trigger:
+      - platform: state
+        entity_id: input_select.tv_content_status
+        to: 
+          - "content"
+          - "commercial"
+    condition:
+      - condition: state
+        entity_id: input_boolean.tv_auto_detection
+        state: "on"
+      - condition: numeric_state
+        entity_id: input_number.tv_detection_confidence
+        above: 70
+      - condition: time
+        after: "17:00:00"  # Only after 5 PM
+        before: "23:00:00"  # Before 11 PM
+    action:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: input_select.tv_content_status
+                state: "content"
+            sequence:
+              - service: light.turn_on
+                target:
+                  entity_id: light.living_room_lights  # Replace with your lights
+                data:
+                  brightness_pct: 20
+                  transition: 3
+          - conditions:
+              - condition: state
+                entity_id: input_select.tv_content_status
+                state: "commercial"
+            sequence:
+              - service: light.turn_on
+                target:
+                  entity_id: light.living_room_lights
+                data:
+                  brightness_pct: 60
+                  transition: 2
+
+  # 4. Statistics Tracking
+  - alias: "Smart TV: Track Detection Statistics"
+    description: "Log detection events for statistics"
+    trigger:
+      - platform: state
+        entity_id: input_select.tv_content_status
+        to:
+          - "content"
+          - "commercial"
+    condition:
+      - condition: state
+        entity_id: input_boolean.tv_auto_detection
+        state: "on"
+    action:
+      - service: logbook.log
+        data:
+          name: "TV Detection Stats"
+          message: >
+            {{ states('input_text.tv_show_context') }} status changed to {{ trigger.to_state.state | upper }} 
+            ({{ states('input_number.tv_detection_confidence') }}% confidence)
+            Previous state: {{ trigger.from_state.state | upper }}
+          entity_id: input_select.tv_content_status
+
+  # 5. Low Confidence Alert
+  - alias: "Smart TV: Low Confidence Detection Alert"
+    description: "Alert when detection confidence is low"
+    trigger:
+      - platform: state
+        entity_id: input_select.tv_content_status
+    condition:
+      - condition: state
+        entity_id: input_boolean.tv_auto_detection
+        state: "on"
+      - condition: numeric_state
+        entity_id: input_number.tv_detection_confidence
+        below: 60
+      - condition: template
+        value_template: "{{ trigger.to_state.state != 'unknown' }}"
+    action:
+      - service: persistent_notification.create
+        data:
+          title: "⚠️ TV Detection - Low Confidence"
+          message: >
+            Show: {{ states('input_text.tv_show_context') }}
+            Detection result: {{ trigger.to_state.state | upper }}
+            Confidence: {{ states('input_number.tv_detection_confidence') }}%
+            
+            You may want to check the image source or lighting conditions.
+          notification_id: "tv_low_confidence"
+
+  # 6. Daily Summary
+  - alias: "Smart TV: Daily Detection Summary"
+    description: "Send daily summary of detection activity"
+    trigger:
+      - platform: time
+        at: "23:30:00"
+    condition:
+      - condition: state
+        entity_id: input_boolean.tv_auto_detection
+        state: "on"
+      - condition: template
+        value_template: "{{ states('sensor.tv_detection_history_count') | int > 0 }}"
+    action:
+      - service: notify.mobile_app_your_phone
+        data:
+          title: "📺 TV Detection Summary"
+          message: >
+            Today's detection activity:
+            Show: {{ states('input_text.tv_show_context') }}
+            Current status: {{ states('input_select.tv_content_status') | title }}
+            Last detection: {{ states('input_datetime.tv_last_detection') }}
+            Total detections today: {{ states('sensor.tv_detection_history_count') }}
+            System enabled: {{ states('input_boolean.tv_auto_detection') | title }}
+
+# Template for additional actions you might want:
+# 
+# - Pause/resume recording devices during commercials
+# - Adjust thermostat during game (dimmer lights = less heat)
+# - Send commercial break notifications to family members
+# - Control smart TV apps or inputs
+# - Trigger different scenes for game vs commercial viewing
+# - Track statistics in a spreadsheet or database
+# - Integration with voice assistants for manual overrides
+
+# 7. Show Context Management Examples:
+
+  # Example: Keyboard Maestro context from filename
+  - alias: "Smart TV: Update Show Context from Screenshot"
+    description: "Extract show context from screenshot filename created by Keyboard Maestro"
+    trigger:
+      - platform: event
+        event_type: folder_watcher
+        event_data:
+          event_type: created
+    condition:
+      - condition: template
+        value_template: "{{ trigger.event.data.path.endswith('.jpg') and 'screenshot' in trigger.event.data.path }}"
+    action:
+      # Example: filename like "screenshot_ESPN_NFL_RedZone_2025-01-15_14-30.jpg"
+      - variables:
+          filename: "{{ trigger.event.data.path.split('/')[-1] }}"
+          show_info: >
+            {% if '_' in filename %}
+              {{ filename.split('_')[1:-2] | join(' ') | replace('_', ' ') }}
+            {% else %}
+              "Unknown Show"
+            {% endif %}
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.tv_show_context
+        data:
+          value: "{{ show_info }}"
+
+  # Example: Manual context update
+  - alias: "Smart TV: Manual Context Update"
+    description: "Manually update show context when you change channels"
+    trigger:
+      - platform: event
+        event_type: show_changed
+    action:
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.tv_show_context
+        data:
+          value: "{{ trigger.event.data.show_name }}"

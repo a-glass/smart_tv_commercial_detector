@@ -1,0 +1,274 @@
+blueprint:
+  name: Smart TV Commercial Detector
+  description: >
+    AI-powered detection of TV commercials using the LLM Vision integration.
+    Analyzes any image source (camera or file path) along with show context to 
+    determine if content is program content or commercial, then updates helper entities 
+    that can trigger other automations. Works with any TV show, sports, movies, etc.
+  domain: automation
+  input:
+    image_source_type:
+      name: Image Source Type
+      description: How you want to provide images for analysis
+      default: "camera"
+      selector:
+        select:
+          options:
+            - label: "Camera Entity"
+              value: "camera"
+            - label: "File Path"
+              value: "file"
+    camera_entity:
+      name: TV Camera (if using camera)
+      description: Camera entity that captures your TV screen
+      default: ""
+      selector:
+        entity:
+          domain: camera
+    image_file_path:
+      name: Image File Path (if using file)
+      description: Path to image file (updated by your own automation/script)
+      default: "/tmp/tv_screenshot.jpg"
+      selector:
+        text:
+    llmvision_provider:
+      name: LLM Vision Provider
+      description: LLM Vision provider ID for commercial detection
+      selector:
+        text:
+    motion_sensor:
+      name: Motion Sensor (Optional)
+      description: Motion sensor to trigger detection (optional - leave blank for timer-based)
+      default: ""
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class: motion
+    detection_interval:
+      name: Detection Interval
+      description: How often to check for commercials (in seconds)
+      default: 30
+      selector:
+        number:
+          min: 10
+          max: 300
+          unit_of_measurement: "seconds"
+    game_status_helper:
+      name: Game Status Helper
+      description: Input select helper to store current status (game/commercial/unknown)
+      selector:
+        entity:
+          domain: input_select
+    confidence_helper:
+      name: Confidence Helper
+      description: Input number helper to store AI confidence level (0-100)
+      selector:
+        entity:
+          domain: input_number
+    last_detection_helper:
+      name: Last Detection Time Helper
+      description: Input datetime helper to store when detection last ran
+      selector:
+        entity:
+          domain: input_datetime
+    enable_switch:
+      name: Enable Switch
+      description: Input boolean to enable/disable the detection system
+      selector:
+        entity:
+          domain: input_boolean
+    consecutive_detections:
+      name: Consecutive Detections Required
+      description: Number of consecutive same detections before triggering state change
+      default: 2
+      selector:
+        number:
+          min: 1
+          max: 10
+          step: 1
+    detection_history_helper:
+      name: Detection History Helper
+      description: Input text helper to store recent detection history
+      selector:
+        entity:
+          domain: input_text
+    show_context_helper:
+      name: Show Context Helper
+      description: Input text helper containing current show information (e.g., "ESPN - NFL RedZone")
+      selector:
+        entity:
+          domain: input_text
+    context_from_filename:
+      name: Extract Context from Filename
+      description: Whether to extract show context from image filename instead of helper entity
+      default: false
+      selector:
+        boolean:
+
+variables:
+  image_source: !input image_source_type
+  camera: !input camera_entity
+  image_path: !input image_file_path
+  llm_provider: !input llmvision_provider
+  motion_trigger: !input motion_sensor
+  interval: !input detection_interval
+  game_status: !input game_status_helper
+  confidence: !input confidence_helper
+  last_detection: !input last_detection_helper
+  enable_switch_entity: !input enable_switch
+  consecutive_required: !input consecutive_detections
+  history_helper: !input detection_history_helper
+  show_context: !input show_context_helper
+  use_filename_context: !input context_from_filename
+
+trigger:
+  - platform: time_pattern
+    seconds: "/{{ interval }}"
+    id: "timer_trigger"
+  - platform: state
+    entity_id: "{{ motion_trigger if motion_trigger else 'none' }}"
+    to: "on"
+    id: "motion_trigger"
+
+condition:
+  - condition: state
+    entity_id: "{{ enable_switch_entity }}"
+    state: "on"
+  - condition: or
+    conditions:
+      - condition: trigger
+        id: "timer_trigger"
+      - condition: and
+        conditions:
+          - condition: trigger
+            id: "motion_trigger"
+          - condition: template
+            value_template: "{{ motion_trigger != '' }}"
+
+action:
+  - service: input_datetime.set_datetime
+    target:
+      entity_id: "{{ last_detection }}"
+    data:
+      datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+
+  - delay: "00:00:02"  # Brief delay to ensure image source is ready
+
+  # Get show context for AI analysis
+  - variables:
+      current_context: >
+        {% if use_filename_context and image_source == "file" %}
+          {% set filename = image_path.split('/')[-1] %}
+          {% if '_' in filename %}
+            {{ filename.split('_')[1:-1] | join(' ') | replace('_', ' ') }}
+          {% else %}
+            "Unknown Show"
+          {% endif %}
+        {% else %}
+          {{ states(show_context) if show_context else "Unknown Show" }}
+        {% endif %}
+
+  - service: llmvision.image_analyzer
+    data:
+      provider: "{{ llm_provider }}"
+      message: >
+        You are analyzing a TV screenshot. Current show context: "{{ current_context }}"
+        
+        Determine if this image shows:
+        1. CONTENT - The actual program/show content (gameplay, scenes, interviews, news, etc.)
+        2. COMMERCIAL - Advertisements, promotional content, or commercial breaks
+        3. UNKNOWN - Unable to determine clearly
+        
+        Consider these factors based on the show context:
+        - For sports: Are there active gameplay, players, game graphics, or sports analysis?
+        - For TV shows/movies: Are there scenes, dialogue, or story content?
+        - For news: Are there anchors, news graphics, or reporting content?
+        - For commercials: Are there product advertisements, promotional messaging, or brand logos?
+        - Look for typical commercial indicators: product names, "buy now" messaging, brand-focused content
+        
+        Context helps determine what "normal content" looks like for this specific show.
+        
+        Respond with ONLY a JSON object in this exact format:
+        {"status": "content|commercial|unknown", "confidence": 0-100, "reason": "brief explanation"}
+      image_entity: >
+        {% if image_source == "camera" and camera != "" %}
+          - "{{ camera }}"
+        {% else %}
+          []
+        {% endif %}
+      image_file: >
+        {% if image_source == "file" %}
+          - "{{ image_path }}"
+        {% else %}
+          []
+        {% endif %}
+      max_tokens: 150
+    response_variable: llm_response
+
+  # Parse the JSON response
+  - variables:
+      ai_response: "{{ llm_response['response_text'] | from_json }}"
+
+  # Update detection history
+  - variables:
+      current_history: "{{ states(history_helper) }}"
+      new_detection: "{{ ai_response.status }}"
+      updated_history: >
+        {% set history_list = current_history.split(',') if current_history != 'unknown' else [] %}
+        {% set new_list = (history_list + [new_detection])[-10:] %}
+        {{ new_list | join(',') }}
+      consecutive_count: >
+        {% set history_list = updated_history.split(',') %}
+        {% set target = history_list[-1] if history_list else 'unknown' %}
+        {% set count = 0 %}
+        {% for item in history_list[::-1] %}
+          {% if item == target %}
+            {% set count = count + 1 %}
+          {% else %}
+            {% break %}
+          {% endif %}
+        {% endfor %}
+        {{ count }}
+
+  - service: input_text.set_value
+    target:
+      entity_id: "{{ history_helper }}"
+    data:
+      value: "{{ updated_history }}"
+
+  # Only update status if we have enough consecutive detections
+  - condition: template
+    value_template: "{{ consecutive_count | int >= consecutive_required | int }}"
+
+  - service: input_select.select_option
+    target:
+      entity_id: "{{ game_status }}"
+    data:
+      option: "{{ ai_response.status }}"
+
+  - service: input_number.set_value
+    target:
+      entity_id: "{{ confidence }}"
+    data:
+      value: "{{ ai_response.confidence }}"
+
+  - service: logbook.log
+    data:
+      name: "Smart TV Commercial Detector"
+      message: >
+        Status CHANGED to {{ ai_response.status | upper }} for "{{ current_context }}"
+        ({{ ai_response.confidence }}% confidence, {{ consecutive_count }}/{{ consecutive_required }} consecutive)
+        Reason: {{ ai_response.reason }}
+      entity_id: "{{ game_status }}"
+
+# Always log the raw detection (even if not changing status)
+  - service: logbook.log
+    data:
+      name: "TV Detection Log"
+      message: >
+        Raw detection: {{ ai_response.status | upper }} for "{{ current_context }}"
+        ({{ ai_response.confidence }}% confidence, {{ consecutive_count }}/{{ consecutive_required }} consecutive)
+      entity_id: "{{ history_helper }}"
+
+mode: single
+max_exceeded: silent

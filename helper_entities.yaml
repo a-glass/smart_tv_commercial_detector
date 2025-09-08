@@ -1,0 +1,120 @@
+# Home Assistant Helper Entities Configuration
+# Add these to your configuration.yaml or create via UI
+
+input_select:
+  tv_content_status:
+    name: "TV Content Status"
+    options:
+      - "unknown"
+      - "content" 
+      - "commercial"
+    initial: "unknown"
+    icon: mdi:television
+
+input_number:
+  tv_detection_confidence:
+    name: "TV Detection Confidence"
+    min: 0
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+    icon: mdi:percent
+
+input_datetime:
+  tv_last_detection:
+    name: "TV Last Detection"
+    has_date: true
+    has_time: true
+    icon: mdi:clock
+
+input_boolean:
+  tv_auto_detection:
+    name: "TV Auto Detection"
+    initial: false
+    icon: mdi:play-pause
+
+input_text:
+  tv_detection_history:
+    name: "TV Detection History"
+    max: 255
+    initial: "unknown"
+    icon: mdi:history
+
+input_text:
+  tv_show_context:
+    name: "TV Show Context"
+    max: 255
+    initial: "Unknown Show"
+    icon: mdi:television-guide
+
+# Optional: Template sensors for easier automation triggers
+template:
+  - sensor:
+      - name: "TV Content Status Display"
+        state: "{{ states('input_select.tv_content_status') | title }}"
+        icon: >
+          {% if states('input_select.tv_content_status') == 'content' %}
+            mdi:television-play
+          {% elif states('input_select.tv_content_status') == 'commercial' %}
+            mdi:television-classic
+          {% else %}
+            mdi:help-circle
+          {% endif %}
+        attributes:
+          confidence: "{{ states('input_number.tv_detection_confidence') }}%"
+          last_check: "{{ states('input_datetime.tv_last_detection') }}"
+          show_context: "{{ states('input_text.tv_show_context') }}"
+          
+  - binary_sensor:
+      - name: "TV Content Active"
+        state: "{{ states('input_select.tv_content_status') == 'content' }}"
+        icon: mdi:television-play
+        
+      - name: "TV Commercial Active"  
+        state: "{{ states('input_select.tv_content_status') == 'commercial' }}"
+        icon: mdi:television-classic
+        
+      - name: "TV High Confidence Detection"
+        state: "{{ states('input_number.tv_detection_confidence') | int >= 80 }}"
+        icon: mdi:check-circle
+
+  - sensor:
+      - name: "TV Detection History Count"
+        state: >
+          {% set history = states('input_text.tv_detection_history') %}
+          {% if history and history != 'unknown' %}
+            {{ history.split(',') | length }}
+          {% else %}
+            0
+          {% endif %}
+        icon: mdi:counter
+        
+      - name: "TV Consecutive Same Detections"
+        state: >
+          {% set history = states('input_text.tv_detection_history') %}
+          {% if history and history != 'unknown' %}
+            {% set history_list = history.split(',') %}
+            {% set target = history_list[-1] if history_list else 'unknown' %}
+            {% set count = 0 %}
+            {% for item in history_list[::-1] %}
+              {% if item == target %}
+                {% set count = count + 1 %}
+              {% else %}
+                {% break %}
+              {% endif %}
+            {% endfor %}
+            {{ count }}
+          {% else %}
+            0
+          {% endif %}
+        attributes:
+          last_detection: >
+            {% set history = states('input_text.tv_detection_history') %}
+            {% if history and history != 'unknown' %}
+              {% set history_list = history.split(',') %}
+              {{ history_list[-1] if history_list else 'unknown' }}
+            {% else %}
+              unknown
+            {% endif %}
+          show_context: "{{ states('input_text.tv_show_context') }}"
+        icon: mdi:repeat

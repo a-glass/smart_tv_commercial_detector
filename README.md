@@ -1,280 +1,284 @@
-# 🏈 Football Auto-Mute System
+# 📺 Smart TV Commercial Detector for Home Assistant
 
-An AI-powered system that automatically mutes your TCL TV during commercial breaks while watching football on YouTube TV, using Claude Vision AI to intelligently detect game vs. commercial content.
+An AI-powered Home Assistant blueprint that automatically detects TV commercials using the LLM Vision integration. The system analyzes images from any source (camera or file path) along with show context and outputs variables that can trigger any Home Assistant automation - from muting your TV to adjusting lights during commercial breaks.
 
 ## ✨ Features
 
-- **🧠 AI-Powered Detection**: Uses Claude Vision API to analyze screenshots and distinguish between game content and commercials
-- **📺 Seamless TV Control**: Controls TCL TV muting via HDMI-CEC commands from your MacBook
-- **⌨️ Keyboard Maestro Integration**: Fully automated with configurable hotkeys and periodic detection
-- **🏠 Home Assistant Support**: Optional integration with Home Assistant for remote control and automation
-- **📊 Smart Context Awareness**: Considers channel, show title, and time context for better accuracy
-- **📝 Comprehensive Logging**: Detailed logging and statistics for debugging and optimization
+- **🧠 AI-Powered Detection**: Uses the LLM Vision integration with multimodal AI models
+- **📱 Home Assistant Native**: Runs entirely within Home Assistant
+- **🖼️ Image Source Flexible**: Works with cameras or file paths 
+- **🎯 Context-Aware**: Uses show information to improve detection accuracy
+- **🔧 Flexible Automation**: Outputs status variables that can trigger any automation you want
+- **🔄 Consecutive Detection Logic**: Configurable number of consecutive detections required before status changes
+- **📊 Confidence Scoring**: Provides confidence levels for detection accuracy
+- **⚡ Real-time Updates**: Continuously monitors and updates status in real-time
+- **🎨 Easy Sharing**: Simple blueprint that others can import and use
+- **📈 Statistics Tracking**: Built-in logging and statistics for monitoring performance
 
 ## 🎯 How It Works
 
-1. **Screenshot Capture**: Keyboard Maestro captures screenshots of the YouTube TV browser window every 30 seconds
-2. **Context Extraction**: Extracts show information (channel, title) from the browser using JavaScript
-3. **AI Analysis**: Sends screenshot and context to Claude Vision API for "GAME" vs "COMMERCIAL" determination
-4. **TV Control**: Automatically mutes/unmutes TV via HDMI-CEC based on AI detection
-5. **Home Assistant**: Updates HA sensors and triggers automations (optional)
+1. **Image Acquisition**: Images from camera or file path
+2. **Context Extraction**: Gets current show information from helper entity or filename  
+3. **AI Analysis**: LLM Vision analyzes the image with show context to determine content vs commercial
+4. **History Tracking**: Maintains history of recent detections for consecutive logic
+5. **Status Updates**: Updates helper entities only after consecutive detections meet threshold
+6. **Automation Triggers**: Your automations respond to the confirmed status changes
 
-## 📋 Requirements
+## 📋 Prerequisites
 
-### Hardware
-- MacBook Pro (Intel or Apple Silicon)
-- TCL TV with HDMI-CEC support
-- HDMI connection between MacBook and TV
+### Home Assistant Requirements
+- **Home Assistant 2024.1+** (required for LLM Vision integration)
+- **LLM Vision Integration** installed and configured via HACS
+- **AI Provider** configured (OpenAI, Anthropic, Google Gemini, etc.)
 
-### Software
-- macOS 10.15+ 
-- Chrome browser
-- Keyboard Maestro 11.4+
-- YouTube TV subscription
-- Claude API key (Anthropic)
-- Homebrew (will be installed automatically)
+### Image Source Options
+- **Camera Entity**: Camera pointed at your TV (phone, webcam, or dedicated camera)
+- **File Path**: Any method that updates a file with TV screenshots  
+- **Manual Upload**: Manual image upload via Home Assistant services
+- Smart TV or streaming device with Home Assistant integration (for volume control)
+- Any devices you want to automate based on commercial detection
 
-### Optional
-- Home Assistant instance
-- Home Assistant long-lived access token
+## 🚀 Quick Setup
 
-## 🚀 Quick Start
+### 1. Install LLM Vision Integration
 
-### 1. Clone and Install
+1. **Install via HACS:**
+   - Go to **HACS → Integrations**
+   - Click **Explore & Download Repositories**
+   - Search for "LLM Vision"
+   - Install the integration
+   - Restart Home Assistant
 
-```bash
-git clone <repository-url>
-cd football-auto-mute
-chmod +x scripts/install.sh
-./scripts/install.sh
-```
+2. **Configure LLM Vision:**
+   - Go to **Settings → Devices & Services → Add Integration**
+   - Search for "LLM Vision" and add it
+   - Configure your AI provider (OpenAI, Anthropic, Google Gemini, etc.)
+   - Note down your **Provider ID** for the blueprint configuration
 
-### 2. Configure API Key
+3. **Add media directory** to `configuration.yaml`:
+   ```yaml
+   homeassistant:
+     media_dirs:
+       llmvision: /media/llmvision
+   ```
+   
+   **Note:** Your current config shows `media_dirs:` at the root level, but it should be under `homeassistant:` section. Update your configuration.yaml to:
+   ```yaml
+   homeassistant:
+     media_dirs:
+       llmvision: /media/llmvision
+   
+   # Move the existing media_dirs under homeassistant section
+   # Remove the standalone media_dirs: line
+   ```
 
-Edit `config/config.yaml` and add your Claude API key:
+### 2. Set Up Image Source
 
-```yaml
-claude_api_key: "sk-ant-api03-your-key-here"
-```
+Choose your image source method:
 
-Get your API key from: https://console.anthropic.com/
+**Option A: Camera Entity**
+- Phone running Home Assistant Companion app as IP camera
+- USB webcam connected to Home Assistant device  
+- Dedicated IP camera positioned to view TV
+- Existing security camera repositioned
 
-### 3. Run Setup
+**Option B: File Path**
+- Script/automation that captures screenshots to a file
+- External tools that update image files
+- Screen recording software output
 
-```bash
-chmod +x scripts/setup.sh
-./scripts/setup.sh
-```
 
-### 4. Configure Keyboard Maestro
+### 3. Create Helper Entities
 
-1. Open Keyboard Maestro
-2. Follow the setup guide in `config/keyboard_maestro_setup.md`
-3. Import or create the macros as described
-
-### 5. Test the System
-
-```bash
-./scripts/test_system.sh
-```
-
-### 6. Start Watching Football!
-
-```bash
-./scripts/start_system.sh
-```
-
-Use **⌘⌥F** to start detection, **⌘⌥⇧F** to toggle system on/off.
-
-## ⚙️ Configuration
-
-### Main Configuration (`config/config.yaml`)
+Add these to your `configuration.yaml` or create via the UI:
 
 ```yaml
-# Claude AI API
-claude_api_key: "your-api-key-here"
-
-# Detection Settings
-detection:
-  interval_seconds: 30  # How often to check
-  enable_logging: true
-
-# TV Control
-tv_control:
-  enabled: true
-  cec_device_id: 0
-  mute_method: "volume_down"
-  volume_steps: 5
-
-# Home Assistant (Optional)
-home_assistant:
-  enabled: false
-  url: "http://homeassistant.local:8123"
-  token: "your-ha-token"
+# Copy the contents of helper_entities.yaml
 ```
 
-### Keyboard Maestro Setup
+### 4. Import Blueprint
 
-See `config/keyboard_maestro_setup.md` for detailed macro configuration.
+1. Go to **Settings → Automations & Scenes → Blueprints**
+2. Click **Import Blueprint**
+3. Use this URL: `https://github.com/your-repo/football_commercial_detector.yaml`
+4. Or copy the blueprint file contents manually
 
-Key macros:
-- **Football Auto-Mute System**: Main detection loop (⌘⌥F)
-- **Toggle Auto-Mute System**: Enable/disable system (⌘⌥⇧F)
+### 5. Create Detection Automation
 
-## 🏠 Home Assistant Integration
+1. Go to **Settings → Automations & Scenes → Automations**  
+2. Click **Add Automation → Start with Blueprint**
+3. Select "Smart TV Commercial Detector"
+4. Configure:
+   - **Image Source Type**: Choose "camera" or "file"
+   - **TV Camera**: Your camera entity (if using camera source)
+   - **Image File Path**: Path to image file (if using file source)
+   - **LLM Vision Provider**: Your Provider ID from LLM Vision setup
+   - **Content Status Helper**: `input_select.tv_content_status`
+   - **Confidence Helper**: `input_number.tv_detection_confidence`
+   - **Last Detection Helper**: `input_datetime.tv_last_detection`
+   - **Enable Switch**: `input_boolean.tv_auto_detection`
+   - **Consecutive Detections Required**: How many in a row before status changes (default 2)
+   - **Detection History Helper**: `input_text.tv_detection_history`
+   - **Show Context Helper**: `input_text.tv_show_context`
+   - **Extract Context from Filename**: Whether to get show info from filename
+   - **Detection Interval**: How often to check (default 30 seconds)
 
-### Setup
+### 6. Create Your Response Automations
 
-1. Enable in `config/config.yaml`:
+Use the examples in `example_automations.yaml` to create automations that respond to the detection results, such as:
+- Muting/unmuting your TV
+- Adjusting room lighting
+- Sending notifications
+- Controlling other smart devices
+
+## 🔧 Configuration
+
+### Detection Settings
+
+- **Interval**: How often to analyze (10-300 seconds)
+- **Confidence Threshold**: Minimum confidence level for actions (recommended 75%+)
+- **Motion Trigger**: Optional motion sensor to trigger immediate detection
+
+### AI Optimization Tips
+
+- **Camera Positioning**: Ensure clear view of TV with minimal glare
+- **Lighting**: Consistent room lighting improves detection accuracy
+- **Resolution**: Higher resolution camera provides better AI analysis
+- **Timing**: Avoid detection during scene transitions or loading screens
+
+## 📊 Available Variables
+
+The system creates these entities you can use in automations:
+
+### Input Entities
+- `input_select.football_game_status` - Current status: "game", "commercial", or "unknown"
+- `input_number.football_detection_confidence` - Confidence level (0-100%)
+- `input_datetime.football_last_detection` - Timestamp of last detection
+- `input_boolean.football_auto_detection` - Enable/disable the system
+- `input_text.football_detection_history` - Recent detection history for consecutive logic
+
+### Template Sensors
+- `sensor.football_status_display` - Formatted display of current status
+- `binary_sensor.football_game_active` - True when game is detected
+- `binary_sensor.football_commercial_active` - True when commercial is detected
+- `binary_sensor.football_high_confidence_detection` - True when confidence ≥ 80%
+- `sensor.football_detection_history_count` - Number of recent detections stored
+- `sensor.football_consecutive_same_detections` - Count of consecutive identical detections
+
+## 🎮 Example Automations
+
+### Basic TV Muting
 ```yaml
-home_assistant:
-  enabled: true
-  url: "http://your-ha-ip:8123"
-  token: "your-long-lived-token"
+automation:
+  - alias: "Mute TV During Commercials"
+    trigger:
+      platform: state
+      entity_id: input_select.football_game_status  
+      to: "commercial"
+    condition:
+      - condition: numeric_state
+        entity_id: input_number.football_detection_confidence
+        above: 75
+    action:
+      service: media_player.volume_mute
+      target:
+        entity_id: media_player.your_tv
+      data:
+        is_volume_muted: true
 ```
 
-2. Add configuration to Home Assistant:
-```bash
-python3 src/ha_integration.py
-```
-
-3. Restart Home Assistant
-
-### Available Entities
-
-- `input_boolean.football_auto_mute_enabled` - System enable/disable switch
-- `sensor.football_auto_mute_status` - Current detection status
-- `sensor.football_auto_mute_stats` - Detection statistics
-
-### Automations
-
-The system creates automations for:
-- Start/stop notifications
-- Commercial detection alerts
-- Game resumed notifications
-
-## 🛠 Usage
-
-### Manual Control
-
-```bash
-# Start the system
-./scripts/start_system.sh
-
-# Stop the system  
-./scripts/stop_system.sh
-
-# Test detection
-./scripts/test_system.sh
-
-# Check logs
-tail -f logs/football_detector.log
-```
-
-### Keyboard Maestro Shortcuts
-
-- **⌘⌥F** - Start/resume detection loop
-- **⌘⌥⇧F** - Toggle system on/off
-
-### Command Line Testing
-
-```bash
-# Test with a screenshot
-source venv/bin/activate
-python3 src/km_helper.py /path/to/screenshot.png '{"channel": "ESPN", "title": "NFL Game"}'
-
-# Test CEC connection
-cec-client -l
-
-# Test Home Assistant integration
-python3 src/ha_integration.py
-```
-
-## 📊 Monitoring and Logs
-
-### Log Files
-
-- `logs/football_detector.log` - Main system activity
-- `logs/km_activity.log` - Keyboard Maestro macro activity
-
-### Home Assistant Dashboard
-
-If enabled, monitor via:
-- Detection status sensor
-- Statistics dashboard
-- Automation history
-
-### Debug Mode
-
-Enable debug logging in `config/config.yaml`:
-
+### Smart Lighting Control
 ```yaml
-logging:
-  level: "DEBUG"
+automation:
+  - alias: "Dim Lights During Game"
+    trigger:
+      platform: state
+      entity_id: binary_sensor.football_game_active
+      to: "on"
+    action:
+      service: light.turn_on
+      target:
+        entity_id: light.living_room
+      data:
+        brightness_pct: 20
 ```
 
-## 🔧 Troubleshooting
+See `example_automations.yaml` for more examples.
 
-### Common Issues
+## 🔍 Troubleshooting
 
-**CEC Not Working**
-```bash
-# Check if TV is detected
-cec-client -l
+### Detection Issues
+- **Low Confidence**: Check camera positioning and lighting
+- **False Positives**: Increase confidence threshold in automations
+- **Missed Detections**: Decrease detection interval or improve camera angle
+- **No Detections**: Verify AI integration is working and camera captures TV clearly
 
-# Test CEC commands manually
-echo "voldown 0" | cec-client -s -d 1
-```
+### Home Assistant Issues
+- **Blueprint Import Failed**: Check Home Assistant version (2025.8+ required)
+- **AI Task Not Available**: Verify AI integration is properly configured
+- **Camera Offline**: Check camera connection and Home Assistant integration
 
-**Claude API Errors**
-- Verify API key is correct
-- Check API quota/billing
-- Review logs for specific error messages
+### Performance Optimization
+- **High CPU Usage**: Increase detection interval or use local AI model
+- **Slow Response**: Check network latency to AI service
+- **Storage Growth**: Enable log rotation in Home Assistant
 
-**Keyboard Maestro Not Triggering**
-- Check macro is enabled
-- Verify Chrome window is active
-- Check Screen Recording permissions
+## 📈 Monitoring and Statistics
 
-**Detection Accuracy Issues**
-- Review context information being sent
-- Check screenshot quality/timing
-- Examine detection history in logs
+### Built-in Logging
+The system automatically logs all detection events to the Home Assistant logbook with:
+- Detection results and confidence levels
+- Timestamp and duration information
+- State change history
 
-### Getting Help
+### Custom Statistics
+Create additional sensors to track:
+- Daily commercial/game time ratios
+- Detection accuracy over time
+- Peak viewing hours
+- System uptime and reliability
 
-1. Check the logs: `tail -f logs/football_detector.log`
-2. Run test script: `./scripts/test_system.sh`
-3. Verify configuration: `cat config/config.yaml`
+## 🔒 Privacy and Security
 
-## 🔒 Security & Privacy
+- **Local Processing**: Camera images are only sent to your configured AI service
+- **No External Storage**: Screenshots are not permanently stored
+- **Secure APIs**: All AI service communication uses HTTPS
+- **Home Assistant Only**: No external services required beyond AI integration
 
-- Screenshots are processed locally and sent only to Claude API
-- No data is stored permanently (screenshots are deleted after analysis)
-- Claude API calls are over HTTPS
-- Home Assistant integration uses local network only
-- All logs stored locally
+## 🤝 Contributing and Sharing
 
-## 🤝 Contributing
+This blueprint is designed to be easily shared with the Home Assistant community:
 
-Contributions welcome! Please:
+1. **Fork this repository**
+2. **Customize for your setup**
+3. **Share improvements via pull requests**
+4. **Create blueprint variations for different sports or TV content**
 
-1. Fork the repository
-2. Create a feature branch
-3. Test thoroughly
-4. Submit a pull request
+## 📄 Files Included
+
+- `smart_tv_commercial_detector.yaml` - Main Home Assistant blueprint
+- `helper_entities.yaml` - Required helper entity configurations
+- `example_automations.yaml` - Example response automations
+- `README.md` - This documentation
+
+## 🆘 Support
+
+For issues or questions:
+1. Check the troubleshooting section above
+2. Review Home Assistant logs for error messages
+3. Test AI integration independently to verify it's working
+4. Open an issue in this repository with detailed information
 
 ## 📄 License
 
-MIT License - see LICENSE file for details.
+MIT License - Feel free to use, modify, and share!
 
 ## 🙏 Acknowledgments
 
-- Anthropic for Claude Vision API
-- TCL for HDMI-CEC support
-- Keyboard Maestro for automation capabilities
-- Home Assistant community
+- Home Assistant team for the AI Task integration
+- AI service providers (OpenAI, Anthropic, Google, Ollama)
+- Home Assistant community for blueprints and automation ideas
 
 ---
 
-**⚠️ Disclaimer**: This system is for personal use only. Ensure compliance with YouTube TV terms of service. The AI detection is not 100% accurate and may occasionally misclassify content.
+**⚠️ Disclaimer**: This system is for personal use only. Detection accuracy may vary based on camera setup, lighting conditions, and AI service performance. Always verify automated actions (like muting) are working as expected during initial setup.
