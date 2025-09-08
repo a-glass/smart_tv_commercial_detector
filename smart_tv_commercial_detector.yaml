@@ -31,14 +31,6 @@ blueprint:
       default: "/config/media/tv_screenshot.jpg"
       selector:
         text:
-    motion_sensor:
-      name: Motion Sensor (Optional)
-      description: Motion sensor to trigger detection (optional - leave blank for timer-based)
-      default: ""
-      selector:
-        entity:
-          domain: binary_sensor
-          device_class: motion
     detection_interval_helper:
       name: Detection Interval Helper
       description: Input number helper that controls how often to check (in seconds)
@@ -101,7 +93,6 @@ variables:
   image_source: !input image_source_type
   camera: !input camera_entity
   image_path: !input image_file_path
-  motion_trigger: !input motion_sensor
   interval_helper: !input detection_interval_helper
   content_status: !input content_status_helper
   confidence: !input confidence_helper
@@ -124,16 +115,6 @@ trigger:
 condition:
   - condition: template
     value_template: "{{ is_state(enable_switch_entity, 'on') }}"
-  - condition: or
-    conditions:
-      - condition: trigger
-        id: "timer_trigger"
-      - condition: and
-        conditions:
-          - condition: trigger
-            id: "motion_trigger"
-          - condition: template
-            value_template: "{{ motion_trigger != '' }}"
 
 action:
   - service: input_datetime.set_datetime
