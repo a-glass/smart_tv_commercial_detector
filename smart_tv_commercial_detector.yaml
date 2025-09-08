@@ -125,9 +125,8 @@ trigger:
     id: "motion_trigger"
 
 condition:
-  - condition: state
-    entity_id: "{{ enable_switch_entity }}"
-    state: "on"
+  - condition: template
+    value_template: "{{ is_state(enable_switch_entity, 'on') }}"
   - condition: or
     conditions:
       - condition: trigger
