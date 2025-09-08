@@ -28,7 +28,7 @@ blueprint:
     image_file_path:
       name: Image File Path (if using file)
       description: Path to image file (updated by your own automation/script)
-      default: "/tmp/tv_screenshot.jpg"
+      default: "/config/media/tv_screenshot.jpg"
       selector:
         text:
     motion_sensor:
