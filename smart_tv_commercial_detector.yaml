@@ -39,15 +39,12 @@ blueprint:
         entity:
           domain: binary_sensor
           device_class: motion
-    detection_interval:
-      name: Detection Interval
-      description: How often to check for commercials (in seconds)
-      default: 30
+    detection_interval_helper:
+      name: Detection Interval Helper
+      description: Input number helper that controls how often to check (in seconds)
       selector:
-        number:
-          min: 10
-          max: 300
-          unit_of_measurement: "seconds"
+        entity:
+          domain: input_number
     content_status_helper:
       name: Content Status Helper
       description: Input select helper to store current status (content/commercial/unknown)
@@ -105,7 +102,7 @@ variables:
   camera: !input camera_entity
   image_path: !input image_file_path
   motion_trigger: !input motion_sensor
-  interval: !input detection_interval
+  interval_helper: !input detection_interval_helper
   content_status: !input content_status_helper
   confidence: !input confidence_helper
   last_detection: !input last_detection_helper
@@ -268,7 +265,7 @@ action:
 
   # Wait for the configured interval, then trigger this automation again
   - delay:
-      seconds: "{{ interval }}"
+      seconds: "{{ states(interval_helper) | int }}"
   - condition: template
     value_template: "{{ is_state(enable_switch_entity, 'on') }}"
   - service: automation.trigger
