@@ -48,9 +48,9 @@ blueprint:
           min: 10
           max: 300
           unit_of_measurement: "seconds"
-    game_status_helper:
-      name: Game Status Helper
-      description: Input select helper to store current status (game/commercial/unknown)
+    content_status_helper:
+      name: Content Status Helper
+      description: Input select helper to store current status (content/commercial/unknown)
       selector:
         entity:
           domain: input_select
@@ -106,7 +106,7 @@ variables:
   image_path: !input image_file_path
   motion_trigger: !input motion_sensor
   interval: !input detection_interval
-  game_status: !input game_status_helper
+  content_status: !input content_status_helper
   confidence: !input confidence_helper
   last_detection: !input last_detection_helper
   enable_switch_entity: !input enable_switch
@@ -235,7 +235,7 @@ action:
 
   - service: input_select.select_option
     target:
-      entity_id: "{{ game_status }}"
+      entity_id: "{{ content_status }}"
     data:
       option: "{{ ai_response.status }}"
 
@@ -252,7 +252,7 @@ action:
         Status CHANGED to {{ ai_response.status | upper }} for "{{ current_context }}"
         ({{ ai_response.confidence }}% confidence, {{ consecutive_count }}/{{ consecutive_required }} consecutive)
         Reason: {{ ai_response.reason }}
-      entity_id: "{{ game_status }}"
+      entity_id: "{{ content_status }}"
 
 # Always log the raw detection (even if not changing status)
   - service: logbook.log
