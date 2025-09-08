@@ -117,10 +117,6 @@ trigger:
     entity_id: !input enable_switch
     to: "on"
     id: "enable_trigger"
-  - platform: state
-    entity_id: "{{ motion_trigger if motion_trigger else 'none' }}"
-    to: "on"
-    id: "motion_trigger"
   - platform: event
     event_type: automation_reloaded
     id: "reload_trigger"
