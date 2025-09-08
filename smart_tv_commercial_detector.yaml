@@ -32,8 +32,9 @@ blueprint:
       selector:
         text:
     llmvision_provider:
-      name: LLM Vision Provider
-      description: LLM Vision provider ID for commercial detection
+      name: LLM Vision Provider (Optional)
+      description: LLM Vision provider ID - leave blank to use default provider
+      default: ""
       selector:
         text:
     motion_sensor:
@@ -170,7 +171,9 @@ action:
 
   - service: llmvision.image_analyzer
     data:
+      {% if llm_provider and llm_provider != "" %}
       provider: "{{ llm_provider }}"
+      {% endif %}
       message: >
         You are analyzing a TV screenshot. Current show context: "{{ current_context }}"
         
