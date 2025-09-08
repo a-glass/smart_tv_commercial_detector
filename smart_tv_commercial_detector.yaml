@@ -161,12 +161,14 @@ action:
         
         Respond with ONLY a JSON object in this exact format:
         {"status": "content|commercial|unknown", "confidence": 0-100, "reason": "brief explanation"}
-      {% if image_source == "camera" and camera != "" -%}
-      image_entity:
-        - "{{ camera }}"
-      {%- elif image_source == "file" -%}
-      image_file: "{{ image_path }}"
-      {%- endif %}
+      image_entity: >
+        {% if image_source == "camera" and camera != "" %}
+          {{ camera }}
+        {% endif %}
+      image_file: >
+        {% if image_source == "file" %}
+          {{ image_path }}
+        {% endif %}
       max_tokens: 150
     response_variable: llm_response
 
