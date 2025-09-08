@@ -28,7 +28,7 @@ blueprint:
     image_file_path:
       name: Image File Path (if using file)
       description: Path to image file (updated by your own automation/script)
-      default: "/config/media/tv_screenshot.jpg"
+      default: "/config/www/tv_screenshot.jpg"
       selector:
         text:
     detection_interval_helper:
@@ -125,6 +125,7 @@ action:
 
   - delay: "00:00:02"  # Brief delay to ensure image source is ready
 
+
   # Get show context for AI analysis
   - variables:
       current_context: >
@@ -160,18 +161,12 @@ action:
         
         Respond with ONLY a JSON object in this exact format:
         {"status": "content|commercial|unknown", "confidence": 0-100, "reason": "brief explanation"}
-      image_entity: >
-        {% if image_source == "camera" and camera != "" %}
-          - "{{ camera }}"
-        {% else %}
-          []
-        {% endif %}
-      image_file: >
-        {% if image_source == "file" %}
-          - "{{ image_path }}"
-        {% else %}
-          []
-        {% endif %}
+      {% if image_source == "camera" and camera != "" -%}
+      image_entity:
+        - "{{ camera }}"
+      {%- elif image_source == "file" -%}
+      image_file: "{{ image_path }}"
+      {%- endif %}
       max_tokens: 150
     response_variable: llm_response
 
